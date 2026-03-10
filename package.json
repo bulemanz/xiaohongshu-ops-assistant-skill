@@ -1,0 +1,15 @@
+{
+  "name": "xhs-automation-public",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "xhs:generate": "node src/generate-daily-package.mjs",
+    "xhs:post": "node src/post-image-note.mjs",
+    "xhs:post-daily": "node src/run-daily-post.mjs",
+    "xhs:comments": "node src/comment-pipeline.mjs",
+    "xhs:study": "node src/study-xhs.mjs",
+    "xhs:tick": "node src/scheduler.mjs",
+    "xhs:probe": "node src/probe-current-screen.mjs",
+    "xhs:probe-gemini": "node src/probe-gemini.mjs"
+  }
+}

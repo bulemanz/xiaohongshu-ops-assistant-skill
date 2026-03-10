@@ -1,0 +1,15 @@
+.DS_Store
+node_modules/
+.secrets/
+.env
+
+data/*
+!data/.gitkeep
+
+logs/*
+!logs/.gitkeep
+
+artifacts/*
+!artifacts/generated/
+artifacts/generated/*
+!artifacts/generated/.gitkeep

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.openclaw.xhs-automation</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/zsh</string>
+      <string>__WORKDIR__/scripts/run-scheduler.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__WORKDIR__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>XHS_TIMEZONE</key>
+      <string>Asia/Shanghai</string>
+      <key>XHS_POST_SLOTS</key>
+      <string>13:00,19:00</string>
+      <key>XHS_COMMENT_SWEEP_INTERVAL_HOURS</key>
+      <string>0.25</string>
+      <key>XHS_TEXT_MODE</key>
+      <string>adb-keyboard</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <key>StandardOutPath</key>
+    <string>__WORKDIR__/logs/xhs-automation.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__WORKDIR__/logs/xhs-automation.err.log</string>
+  </dict>
+</plist>
