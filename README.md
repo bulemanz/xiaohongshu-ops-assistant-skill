@@ -33,11 +33,10 @@
 
 ## 这套流程长什么样
 
-![小红书运营工作流封面](./docs/images/ops-workflow-xhs-cover.png)
+
 
 ![小红书运营工作流 SOP](./docs/images/ops-workflow-sop-poster.png)
 
-更详细的树状流程在 [docs/ops-workflow-tree.md](./docs/ops-workflow-tree.md)。
 
 ## 适合的场景
 
