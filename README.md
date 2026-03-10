@@ -100,22 +100,6 @@ npm run xhs:tick -- --publish --comments
 - `XHS_REMOTE_TEXT_COMMAND_TEMPLATE`
 - `XHS_REMOTE_IMAGE_COMMAND_TEMPLATE`
 
-## 注意事项
-
-- 每次设备动作前都要先确认亮屏
-- 同一条可见评论绝不能重复回复
-- 回复必须带线程上下文，不能只看最后一句
-- 高风险、引战、争议评论不要全自动回复
-- 这套仓库不包含绕过审核或伪装真人行为
-
-## 公开版里刻意去掉了什么
-
-- 个人目录路径
-- 本地密钥和环境文件
-- 实际账号数据
-- 评论历史、运行状态、日志
-- 本机安装过的 LaunchAgent 配置
-
 ## 定时任务模板
 
 `launchd/com.openclaw.xhs-automation.plist.template` 使用了 `__WORKDIR__` 占位符。使用前请替换成你自己的绝对路径，再通过 `launchctl` 加载。
