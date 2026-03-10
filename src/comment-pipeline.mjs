@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
-import { COMMENTS_DIR, DEFAULTS } from "./config.mjs";
+import { COMMENTS_DIR, DEFAULTS, LOCKS_DIR } from "./config.mjs";
 import { ensureDailyPackage } from "./daily-package.mjs";
 import {
   buildReplyDraft,
@@ -23,6 +23,7 @@ import {
   ensureDir,
   hashText,
   nowIso,
+  withFileLock,
   writeJson
 } from "./utils.mjs";
 import { XiaohongshuAutomation } from "./xhs.mjs";
@@ -560,128 +561,130 @@ async function autoSendReply(reply, runDir, xhs, state) {
 }
 
 export async function runCommentPipeline(options = {}) {
-  const state = loadState();
-  const postPackage = await ensureDailyPackage({
-    offline: options.offline
-  });
+  return withFileLock(resolve(LOCKS_DIR, "device.lock"), async () => {
+    const state = loadState();
+    const postPackage = await ensureDailyPackage({
+      offline: options.offline
+    });
 
-  if (options.dryRun) {
-    return {
-      outputPath: null,
-      sentCount: 0,
-      items: [],
-      mode: "dry-run",
-      title: postPackage.title
-    };
-  }
-
-  const xhs = new XiaohongshuAutomation(options.device || DEFAULTS.device);
-  const dayKey = dateKey(new Date(), DEFAULTS.timezone);
-  const runDir = `${COMMENTS_DIR}/${dayKey}`;
-  const timestamp = nowIso().replace(/[:.]/g, "-");
-  const xmlPath = `${runDir}/${timestamp}-comments.xml`;
-  const screenshotDir = `${runDir}/artifacts`;
-
-  ensureDir(runDir);
-  ensureDir(screenshotDir);
-
-  await xhs.openCommentsInbox(screenshotDir);
-  await xhs.captureSnapshot(`${timestamp}-comments-inbox`, screenshotDir);
-  xhs.dumpUi(xmlPath);
-
-  const xml = readFileSync(xmlPath, "utf8");
-  const nodes = parseUiXml(xml);
-  const commentEntries = extractCommentEntriesFromNodes(nodes, state);
-  const generatedReplies = await Promise.all(
-    commentEntries
-      .filter((entry) => isSafeForAutoReply(entry.commentText))
-      .map(async (entry) => {
-        const threadContext = buildThreadContext(state, entry, postPackage);
-        const commentFingerprint = buildCommentFingerprint({
-          authorName: entry.authorName,
-          commentText: entry.commentText,
-          interactionType: entry.interactionType,
-          previousContextText: entry.previousContextText,
-          threadKey: threadContext.threadKey
-        });
-        const replyText = await buildReplyDraft(
-          {
-            ...entry,
-            commentFingerprint,
-            threadKey: threadContext.threadKey,
-            history: threadContext.history
-          },
-          postPackage
-        );
-        const replyKey = hashText(`${threadContext.threadKey}|${entry.commentText}|${replyText}`);
-        return {
-          ...entry,
-          replyKey,
-          commentFingerprint,
-          threadKey: threadContext.threadKey,
-          history: threadContext.history,
-          replyText,
-          alreadySent:
-            hasReplied(state, replyKey) ||
-            hasRepliedToComment(state, {
-              authorName: entry.authorName,
-              commentText: entry.commentText,
-              interactionType: entry.interactionType,
-              previousContextText: entry.previousContextText,
-              threadKey: threadContext.threadKey,
-              commentFingerprint
-            })
-        };
-      })
-  );
-
-  const comments = generatedReplies
-    .filter((item) => !item.alreadySent);
-
-  const results = [];
-  let sentCount = 0;
-
-  for (const comment of comments) {
-    const record = { ...comment, sent: false };
-
-    if (
-      options.autoSend &&
-      sentCount < (options.maxReplies || DEFAULTS.maxAutoRepliesPerRun)
-    ) {
-      const sent = await autoSendReply(comment, runDir, xhs, state);
-      record.sent = sent;
-      if (sent) {
-        sentCount += 1;
-        markReplied(state, comment.replyKey, {
-          authorName: comment.authorName,
-          commentText: comment.commentText,
-          commentFingerprint: comment.commentFingerprint,
-          replyText: comment.replyText,
-          threadKey: comment.threadKey,
-          interactionType: comment.interactionType,
-          previousContextText: comment.previousContextText,
-          sourcePostTitle: postPackage.title
-        });
-      }
+    if (options.dryRun) {
+      return {
+        outputPath: null,
+        sentCount: 0,
+        items: [],
+        mode: "dry-run",
+        title: postPackage.title
+      };
     }
 
-    results.push(record);
-  }
+    const xhs = new XiaohongshuAutomation(options.device || DEFAULTS.device);
+    const dayKey = dateKey(new Date(), DEFAULTS.timezone);
+    const runDir = `${COMMENTS_DIR}/${dayKey}`;
+    const timestamp = nowIso().replace(/[:.]/g, "-");
+    const xmlPath = `${runDir}/${timestamp}-comments.xml`;
+    const screenshotDir = `${runDir}/artifacts`;
 
-  const outputPath = `${runDir}/${timestamp}-replies.json`;
-  writeJson(outputPath, {
-    createdAt: nowIso(),
-    sentCount,
-    items: results
+    ensureDir(runDir);
+    ensureDir(screenshotDir);
+
+    await xhs.openCommentsInbox(screenshotDir);
+    await xhs.captureSnapshot(`${timestamp}-comments-inbox`, screenshotDir);
+    xhs.dumpUi(xmlPath);
+
+    const xml = readFileSync(xmlPath, "utf8");
+    const nodes = parseUiXml(xml);
+    const commentEntries = extractCommentEntriesFromNodes(nodes, state);
+    const generatedReplies = await Promise.all(
+      commentEntries
+        .filter((entry) => isSafeForAutoReply(entry.commentText))
+        .map(async (entry) => {
+          const threadContext = buildThreadContext(state, entry, postPackage);
+          const commentFingerprint = buildCommentFingerprint({
+            authorName: entry.authorName,
+            commentText: entry.commentText,
+            interactionType: entry.interactionType,
+            previousContextText: entry.previousContextText,
+            threadKey: threadContext.threadKey
+          });
+          const replyText = await buildReplyDraft(
+            {
+              ...entry,
+              commentFingerprint,
+              threadKey: threadContext.threadKey,
+              history: threadContext.history
+            },
+            postPackage
+          );
+          const replyKey = hashText(`${threadContext.threadKey}|${entry.commentText}|${replyText}`);
+          return {
+            ...entry,
+            replyKey,
+            commentFingerprint,
+            threadKey: threadContext.threadKey,
+            history: threadContext.history,
+            replyText,
+            alreadySent:
+              hasReplied(state, replyKey) ||
+              hasRepliedToComment(state, {
+                authorName: entry.authorName,
+                commentText: entry.commentText,
+                interactionType: entry.interactionType,
+                previousContextText: entry.previousContextText,
+                threadKey: threadContext.threadKey,
+                commentFingerprint
+              })
+          };
+        })
+    );
+
+    const comments = generatedReplies
+      .filter((item) => !item.alreadySent);
+
+    const results = [];
+    let sentCount = 0;
+
+    for (const comment of comments) {
+      const record = { ...comment, sent: false };
+
+      if (
+        options.autoSend &&
+        sentCount < (options.maxReplies || DEFAULTS.maxAutoRepliesPerRun)
+      ) {
+        const sent = await autoSendReply(comment, runDir, xhs, state);
+        record.sent = sent;
+        if (sent) {
+          sentCount += 1;
+          markReplied(state, comment.replyKey, {
+            authorName: comment.authorName,
+            commentText: comment.commentText,
+            commentFingerprint: comment.commentFingerprint,
+            replyText: comment.replyText,
+            threadKey: comment.threadKey,
+            interactionType: comment.interactionType,
+            previousContextText: comment.previousContextText,
+            sourcePostTitle: postPackage.title
+          });
+        }
+      }
+
+      results.push(record);
+    }
+
+    const outputPath = `${runDir}/${timestamp}-replies.json`;
+    writeJson(outputPath, {
+      createdAt: nowIso(),
+      sentCount,
+      items: results
+    });
+
+    updateCommentSweep(state);
+
+    return {
+      outputPath,
+      sentCount,
+      items: results
+    };
   });
-
-  updateCommentSweep(state);
-
-  return {
-    outputPath,
-    sentCount,
-    items: results
-  };
 }
 
 async function main() {

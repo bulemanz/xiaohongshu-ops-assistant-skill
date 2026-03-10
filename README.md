@@ -11,6 +11,13 @@
 
 这套仓库目前偏向 `OpenClaw / GitHub 热门项目 / AI 自动化工作流` 账号，但工作流本身可以改造成其他垂类。
 
+## 风险与免责声明
+
+1. 平台合规：这套工具通过 ADB 驱动物理设备执行发帖和回评，可能违反平台关于自动化操作的条款，存在限流或封号风险。
+2. 隐私安全：`data/` 和 `logs/` 会包含你的帖子草稿、评论上下文、调度状态和错误输出，绝不能提交到公开仓库。
+3. API Key 安全：`.env` 不应提交到 Git。启用 GCP 远程代理时，Gemini 请求体和 API Key 会通过 SSH 标准输入转发到远程机器，不会出现在命令行里，但你仍然要对远程实例自身安全负责。
+4. 设备安全：本工具依赖 USB 调试权限，只应在你信任的本机和网络环境中使用。
+
 ## 仓库里有什么
 
 - `src/`
@@ -44,8 +51,15 @@
 1. 安装 Node.js 20+ 和 `adb`
 2. 复制 `.env.example` 为 `.env`
 3. 打开手机开发者模式和 USB 调试
-4. 如需稳定中文输入，安装 `ADB Keyboard`
+4. 安装支持 ADB 广播输入的输入法，例如 `ADB Keyboard`
 5. 先跑学习和生成，再接发帖和评论链路
+
+### ADB Keyboard 简要接法
+
+1. 在手机上安装 ADB Keyboard
+2. 在系统输入法设置里启用它
+3. 需要自动输入中文时，将 `XHS_TEXT_MODE` 设为 `adb-keyboard`
+4. 脚本会在发送前切换输入法，结束后恢复原输入法
 
 ```bash
 npm run xhs:study -- --keyword OpenClaw --force
@@ -100,6 +114,7 @@ npm run xhs:tick -- --publish --comments
 - `XHS_REMOTE_OPENCLAW`
 - `XHS_REMOTE_TEXT_COMMAND_TEMPLATE`
 - `XHS_REMOTE_IMAGE_COMMAND_TEMPLATE`
+- `XHS_REMOTE_ALLOW_UNSAFE_PROMPT_TEMPLATE` 默认关闭，建议始终使用 `{PROMPT_B64}`
 
 ## 注意事项
 
@@ -108,6 +123,9 @@ npm run xhs:tick -- --publish --comments
 - 回复必须带线程上下文，不能只看最后一句
 - 高风险、引战、争议评论不要全自动回复
 - 这套仓库不包含绕过审核或伪装真人行为
+- 远端命令模板默认只建议使用 `{PROMPT_B64}`，不要把原始提示词直接拼进 shell
+- `data/` 和 `logs/` 属于个人运营数据，不要改 `.gitignore` 去提交它们
+- 日志可能包含接口错误详情和评论上下文，建议定期清理
 
 ## 公开版里刻意去掉了什么
 
@@ -120,3 +138,7 @@ npm run xhs:tick -- --publish --comments
 ## 定时任务模板
 
 `launchd/com.openclaw.xhs-automation.plist.template` 使用了 `__WORKDIR__` 占位符。使用前请替换成你自己的绝对路径，再通过 `launchctl` 加载。
+
+## License
+
+本仓库默认导出 MIT License，见 [LICENSE](./LICENSE)。

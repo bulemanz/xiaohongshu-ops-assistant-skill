@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  rmSync
+} from "node:fs";
 import { dirname, resolve } from "node:path";
 
 export function ensureDir(path) {
@@ -26,6 +32,38 @@ export function writeJson(path, data) {
 export function writeText(path, text) {
   ensureDir(dirname(resolve(path)));
   writeFileSync(resolve(path), text);
+}
+
+export async function withFileLock(lockPath, fn) {
+  const resolvedLockPath = resolve(lockPath);
+  ensureDir(dirname(resolvedLockPath));
+
+  try {
+    mkdirSync(resolvedLockPath);
+  } catch (error) {
+    if (error?.code === "EEXIST") {
+      throw new Error(`lock busy: ${resolvedLockPath}`);
+    }
+    throw error;
+  }
+
+  writeText(
+    resolve(resolvedLockPath, "owner.json"),
+    JSON.stringify(
+      {
+        pid: process.pid,
+        startedAt: nowIso()
+      },
+      null,
+      2
+    )
+  );
+
+  try {
+    return await fn();
+  } finally {
+    rmSync(resolvedLockPath, { recursive: true, force: true });
+  }
 }
 
 export function nowIso() {

@@ -28,14 +28,28 @@ function shouldTryRemote(detail) {
   return /location is not supported/i.test(detail || "");
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryDelayMs(offset, status) {
+  if (status === 429) {
+    return Math.min(10000, 1500 * (offset + 1));
+  }
+
+  return Math.min(5000, 600 * (offset + 1));
+}
+
 function callGeminiRemote({ apiVersion, model, body, apiKey }) {
   const payloadB64 = Buffer.from(JSON.stringify(body), "utf8").toString("base64");
   const url = geminiUrl(apiVersion, model);
   const remoteCommand = [
-    `PAYLOAD_B64='${payloadB64}'`,
-    `TMP_JSON=/tmp/xhs_gemini_${Date.now()}.json`,
-    `printf '%s' "$PAYLOAD_B64" | base64 -d > "$TMP_JSON"`,
-    `curl -sS -X POST '${url}' -H 'Content-Type: application/json' -H 'x-goog-api-key: ${apiKey}' --data @"$TMP_JSON" -w '\\nHTTP_STATUS:%{http_code}\\n'`
+    "set -euo pipefail",
+    "read -r API_KEY",
+    `TMP_JSON="$(mktemp /tmp/xhs_gemini_${Date.now()}.XXXXXX.json)"`,
+    "trap 'rm -f \"$TMP_JSON\"' EXIT",
+    "base64 -d > \"$TMP_JSON\"",
+    `curl -sS -X POST '${url}' -H 'Content-Type: application/json' -H "x-goog-api-key: $API_KEY" --data @"$TMP_JSON" -w '\\nHTTP_STATUS:%{http_code}\\n'`
   ].join(" && ");
 
   const result = spawnSync(
@@ -53,7 +67,8 @@ function callGeminiRemote({ apiVersion, model, body, apiKey }) {
     ],
     {
       encoding: "utf8",
-      maxBuffer: 32 * 1024 * 1024
+      maxBuffer: 32 * 1024 * 1024,
+      input: `${apiKey}\n${payloadB64}`
     }
   );
 
@@ -217,6 +232,7 @@ async function callGeminiWithRotation({
       lastErrorAt: new Date().toISOString(),
       lastErrorCode: code
     });
+    await sleep(retryDelayMs(offset, status));
   }
 
   if (lastError) {

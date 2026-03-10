@@ -9,6 +9,7 @@ export const COMMENTS_DIR = resolve(DATA_DIR, "comments");
 export const STATE_DIR = resolve(DATA_DIR, "state");
 export const CACHE_DIR = resolve(DATA_DIR, "cache");
 export const STUDY_DIR = resolve(DATA_DIR, "study");
+export const LOCKS_DIR = resolve(DATA_DIR, "locks");
 export const ARTIFACTS_DIR = resolve(PROJECT_DIR, "artifacts");
 export const GENERATED_DIR = resolve(ARTIFACTS_DIR, "generated");
 
@@ -79,7 +80,9 @@ export const REMOTE = {
   project:
     process.env.XHS_GCLOUD_PROJECT || "your-project-id",
   textTemplate: process.env.XHS_REMOTE_TEXT_COMMAND_TEMPLATE || "",
-  imageTemplate: process.env.XHS_REMOTE_IMAGE_COMMAND_TEMPLATE || ""
+  imageTemplate: process.env.XHS_REMOTE_IMAGE_COMMAND_TEMPLATE || "",
+  allowUnsafePromptTemplate:
+    process.env.XHS_REMOTE_ALLOW_UNSAFE_PROMPT_TEMPLATE === "1"
 };
 
 function loadGeminiKeys() {

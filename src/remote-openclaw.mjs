@@ -1,12 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { REMOTE } from "./config.mjs";
 
-function escapeSingleQuotes(text) {
-  return text.replace(/'/g, "'\"'\"'");
-}
-
 function applyTemplate(template, replacements) {
   return template.replace(/\{([A-Z0-9_]+)\}/g, (_, key) => replacements[key] || "");
+}
+
+function validateTemplate(template) {
+  if (
+    template.includes("{PROMPT}") &&
+    !REMOTE.allowUnsafePromptTemplate
+  ) {
+    throw new Error("unsafe remote template: use {PROMPT_B64} instead of {PROMPT}");
+  }
 }
 
 function runRemote(command) {
@@ -45,9 +50,10 @@ export function remoteTextRefine(prompt, fallbackText) {
   }
 
   try {
+    validateTemplate(REMOTE.textTemplate);
     const output = runRemote(
       applyTemplate(REMOTE.textTemplate, {
-        PROMPT: escapeSingleQuotes(prompt),
+        PROMPT: prompt,
         PROMPT_B64: Buffer.from(prompt, "utf8").toString("base64")
       })
     );
@@ -64,9 +70,10 @@ export function remoteImageBase64(prompt) {
   }
 
   try {
+    validateTemplate(REMOTE.imageTemplate);
     const output = runRemote(
       applyTemplate(REMOTE.imageTemplate, {
-        PROMPT: escapeSingleQuotes(prompt),
+        PROMPT: prompt,
         PROMPT_B64: Buffer.from(prompt, "utf8").toString("base64")
       })
     );

@@ -1,8 +1,9 @@
 import { pathToFileURL } from "node:url";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { DEFAULTS } from "./config.mjs";
+import { DEFAULTS, LOCKS_DIR } from "./config.mjs";
 import { ensureDailyPackage } from "./daily-package.mjs";
+import { withFileLock } from "./utils.mjs";
 import { XiaohongshuAutomation } from "./xhs.mjs";
 
 function parseArgs(argv) {
@@ -29,40 +30,42 @@ function parseArgs(argv) {
 }
 
 export async function runDailyPost(options = {}) {
-  const outputDir =
-    options.outputDir ||
-    resolve("artifacts", "runs", new Date().toISOString().replaceAll(":", "-"));
-  const postPackage = await ensureDailyPackage(options);
+  return withFileLock(resolve(LOCKS_DIR, "device.lock"), async () => {
+    const outputDir =
+      options.outputDir ||
+      resolve("artifacts", "runs", new Date().toISOString().replaceAll(":", "-"));
+    const postPackage = await ensureDailyPackage(options);
 
-  if (options.dryRun) {
+    if (options.dryRun) {
+      return {
+        mode: "dry-run",
+        postPackage
+      };
+    }
+
+    mkdirSync(outputDir, { recursive: true });
+
+    const xhs = new XiaohongshuAutomation(options.device || DEFAULTS.device);
+    await xhs.openEditorWithImage(resolve(postPackage.cover.pngPath), outputDir);
+    await xhs.fillTitleAndBody({
+      title: postPackage.title,
+      body: postPackage.body,
+      textMode: options.textMode || "adb-keyboard",
+      outputDir
+    });
+
+    if (options.publish) {
+      await xhs.publish(outputDir);
+    } else if (options.saveDraft) {
+      await xhs.saveDraft(outputDir);
+    }
+
     return {
-      mode: "dry-run",
+      mode: options.publish ? "publish" : options.saveDraft ? "save-draft" : "editor-only",
+      outputDir,
       postPackage
     };
-  }
-
-  mkdirSync(outputDir, { recursive: true });
-
-  const xhs = new XiaohongshuAutomation(options.device || DEFAULTS.device);
-  await xhs.openEditorWithImage(resolve(postPackage.cover.pngPath), outputDir);
-  await xhs.fillTitleAndBody({
-    title: postPackage.title,
-    body: postPackage.body,
-    textMode: options.textMode || "adb-keyboard",
-    outputDir
   });
-
-  if (options.publish) {
-    await xhs.publish(outputDir);
-  } else if (options.saveDraft) {
-    await xhs.saveDraft(outputDir);
-  }
-
-  return {
-    mode: options.publish ? "publish" : options.saveDraft ? "save-draft" : "editor-only",
-    outputDir,
-    postPackage
-  };
 }
 
 async function main() {
