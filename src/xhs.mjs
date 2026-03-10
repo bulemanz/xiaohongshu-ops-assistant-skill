@@ -426,6 +426,41 @@ export class XiaohongshuAutomation {
     throw new Error("[xhs] failed to open comments inbox");
   }
 
+  async returnToMessagesHome(outputDir) {
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      const snapshot = outputDir
+        ? await this.captureSnapshot(`30-before-return-messages-${attempt}`, outputDir)
+        : null;
+      const screen = snapshot?.analysis.screen || "unknown";
+
+      if (screen === "messages-home") {
+        return snapshot;
+      }
+
+      if (screen === "home") {
+        return this.openMessages(outputDir);
+      }
+
+      if (screen === "comments-inbox" || screen === "reply-composer" || screen === "unknown") {
+        keyevent(4);
+        await sleep(1200);
+        continue;
+      }
+
+      keyevent(4);
+      await sleep(1200);
+    }
+
+    const finalSnapshot = await this.openMessages(outputDir);
+    if (finalSnapshot?.analysis.screen !== "messages-home") {
+      throw new Error(
+        `[xhs] failed to return to messages home. Got ${finalSnapshot?.analysis.screen || "unknown"}.`
+      );
+    }
+
+    return finalSnapshot;
+  }
+
   async focusNodeByTab({ targetBounds, outputDir, stepPrefix, maxTabs = 18 }) {
     for (let index = 0; index <= maxTabs; index += 1) {
       const snapshot = await this.captureSnapshot(`${stepPrefix}-focus-${index}`, outputDir);

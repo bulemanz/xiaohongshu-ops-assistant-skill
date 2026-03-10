@@ -677,6 +677,9 @@ export async function runCommentPipeline(options = {}) {
       items: results
     });
 
+    await xhs.returnToMessagesHome(screenshotDir);
+    await xhs.captureSnapshot(`${timestamp}-messages-home`, screenshotDir);
+
     updateCommentSweep(state);
 
     return {
